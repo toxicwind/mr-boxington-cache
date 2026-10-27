@@ -1,0 +1,38 @@
+replicaCount: 2
+image:
+  repository: ghcr.io/jdx/mbx-cache
+  tag: latest
+  pullPolicy: IfNotPresent
+service:
+  port: 8080
+resources:
+  requests: {cpu: 100m, memory: 128Mi}
+  limits: {memory: 512Mi}
+config:
+  storage: s3
+  databaseUrl: ""
+  databaseMaxConnections: 32
+  azureAccount: ""
+  azureContainer: ""
+  azurePrefix: v1
+  azureCredentialType: auto
+  azureEndpoint: ""
+  azureAllowHttp: false
+  s3Bucket: ""
+  s3Prefix: v1
+  s3Region: us-east-1
+  s3Endpoint: ""
+  s3PathStyle: false
+  maxBlobBytes: "5368709120"
+secret:
+  existingSecret: mbx-cache
+  tokensKey: tokens-json
+  oidcProvidersKey: oidc-providers-json
+serviceAccount:
+  create: true
+  name: ""
+podAnnotations: {}
+serviceMonitor:
+  enabled: false
+networkPolicy:
+  enabled: true

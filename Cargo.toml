@@ -1,0 +1,65 @@
+[package]
+name = "mbx-cache"
+version = "0.2.0"
+edition = "2024"
+license = "MIT"
+description = "Self-hosted remote build cache server for mbx"
+repository = "https://github.com/jdx/mbx-cache"
+homepage = "https://github.com/jdx/mbx-cache"
+readme = "README.md"
+keywords = ["mbx", "cache", "build-cache", "remote-cache", "rust"]
+categories = ["command-line-utilities", "development-tools"]
+include = [
+  "/src/**",
+  "/migrations/**",
+  "/Cargo.toml",
+  "/Cargo.lock",
+  "/README.md",
+  "/LICENSE",
+]
+
+[dependencies]
+anyhow = "1"
+async-stream = "0.3"
+async-trait = "0.1"
+aws-config = { version = "1", default-features = false, features = ["behavior-version-latest", "default-https-client", "rt-tokio"] }
+aws-sdk-s3 = { version = "1", default-features = false, features = ["behavior-version-latest", "default-https-client", "rt-tokio"] }
+axum = { version = "0.8", features = ["http2", "json", "macros"] }
+base64 = "0.22"
+blake3 = "1"
+clap = { version = "4", features = ["derive", "env"] }
+futures-util = "0.3"
+hex = "0.4"
+http = "1"
+jsonwebtoken = "9"
+mbx-cache-protocol = "0.5.2"
+object_store = { version = "0.14.1", default-features = false, features = ["azure"] }
+prometheus-client = "0.25"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio-rustls", "postgres", "migrate", "macros", "chrono"] }
+tempfile = "3"
+thiserror = "2"
+tokio = { version = "1", features = ["full"] }
+tokio-util = { version = "0.7", features = ["io"] }
+tower-http = { version = "0.6", features = [
+  "compression-zstd",
+  "decompression-zstd",
+  "limit",
+  "trace",
+] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+uuid = { version = "1", features = ["v4"] }
+
+[dev-dependencies]
+zstd = "0.13"
+http-body-util = "0.1"
+rsa = { version = "0.9", features = ["pem"] }
+tower = { version = "0.5", features = ["util"] }
+
+[profile.release]
+lto = "thin"
+strip = true

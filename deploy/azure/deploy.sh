@@ -1,0 +1,283 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+
+for command in curl jq mise; do
+  if ! command -v "$command" >/dev/null; then
+    echo "required command not found: $command" >&2
+    exit 1
+  fi
+done
+
+if command -v sha256sum >/dev/null; then
+  sha256_command=(sha256sum)
+elif command -v shasum >/dev/null; then
+  sha256_command=(shasum -a 256)
+else
+  echo "required command not found: sha256sum or shasum" >&2
+  exit 1
+fi
+
+if ! mise bootstrap remote --help >/dev/null 2>&1; then
+  echo "mise 2026.8.2 or newer with 'bootstrap remote' is required" >&2
+  exit 1
+fi
+
+require_env() {
+  local name=$1
+  if [[ -z ${!name-} ]]; then
+    echo "$name must be set" >&2
+    exit 1
+  fi
+}
+
+for name in \
+  MBX_CACHE_DATABASE_PASSWORD \
+  MBX_CACHE_IMAGE \
+  AZURE_SSH_HOST \
+  AZURE_SSH_SOURCE_CIDR \
+  AZURE_STORAGE_ACCOUNT; do
+  require_env "$name"
+done
+
+if [[ ! $MBX_CACHE_DATABASE_PASSWORD =~ ^[A-Za-z0-9_-]{24,}$ ]]; then
+  echo "MBX_CACHE_DATABASE_PASSWORD must contain at least 24 URL-safe characters" >&2
+  exit 1
+fi
+if [[ ! $MBX_CACHE_IMAGE =~ ^.+@sha256:[a-fA-F0-9]{64}$ ]]; then
+  echo "MBX_CACHE_IMAGE must be pinned by sha256 digest" >&2
+  exit 1
+fi
+if [[ $AZURE_SSH_SOURCE_CIDR =~ [[:space:]] ]]; then
+  echo "AZURE_SSH_SOURCE_CIDR must be one CIDR without whitespace" >&2
+  exit 1
+fi
+
+trusted_repositories_file=${MBX_CACHE_GITHUB_REPOSITORIES_FILE:-$script_dir/trusted-repositories.json}
+write_actor_id=${MBX_CACHE_GITHUB_WRITE_ACTOR_ID:-216188}
+deployment_repository=${MBX_CACHE_DEPLOY_GITHUB_REPOSITORY:-jdx/mr-boxington-cache}
+deployment_owner_id=${MBX_CACHE_DEPLOY_GITHUB_OWNER_ID:-216188}
+deployment_workflow_ref=${MBX_CACHE_DEPLOY_GITHUB_WORKFLOW_REF:-jdx/mr-boxington-cache/.github/workflows/release-plz.yml@refs/heads/main}
+deployment_run_attempt=${MBX_CACHE_DEPLOY_GITHUB_RUN_ATTEMPT:-1}
+ssh_user=${AZURE_SSH_USER:-azureuser}
+ssh_port=${AZURE_SSH_PORT:-22}
+storage_container=${AZURE_STORAGE_CONTAINER:-cache}
+cache_url=${MBX_CACHE_URL:-https://cache.jdx.dev}
+
+if [[ ! -r $trusted_repositories_file ]]; then
+  echo "MBX_CACHE_GITHUB_REPOSITORIES_FILE is not readable: $trusted_repositories_file" >&2
+  exit 1
+fi
+if ! trusted_repositories=$(jq -ce '
+  if type != "array" or length == 0 then
+    error("must be a non-empty array")
+  elif any(.[].repository; type != "string" or test("^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$") | not) then
+    error("repository must be an owner/repository name")
+  elif any(.[].repository_owner_id; type != "string" or test("^[0-9]+$") | not) then
+    error("repository_owner_id must be a numeric string")
+  elif ([.[].repository] | unique | length) != length then
+    error("repository names must be unique")
+  else
+    map({repository, repository_owner_id})
+  end
+' "$trusted_repositories_file"); then
+  echo "MBX_CACHE_GITHUB_REPOSITORIES_FILE is invalid: $trusted_repositories_file" >&2
+  exit 1
+fi
+if [[ ! $deployment_repository =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
+  echo "MBX_CACHE_DEPLOY_GITHUB_REPOSITORY must be an owner/repository name" >&2
+  exit 1
+fi
+if [[ ! $write_actor_id =~ ^[0-9]+$ ]]; then
+  echo "MBX_CACHE_GITHUB_WRITE_ACTOR_ID must be numeric" >&2
+  exit 1
+fi
+if [[ ! $deployment_owner_id =~ ^[0-9]+$ ]]; then
+  echo "MBX_CACHE_DEPLOY_GITHUB_OWNER_ID must be numeric" >&2
+  exit 1
+fi
+if [[ ! $deployment_run_attempt =~ ^[1-9][0-9]*$ ]]; then
+  echo "MBX_CACHE_DEPLOY_GITHUB_RUN_ATTEMPT must be a positive integer" >&2
+  exit 1
+fi
+if [[ ! $deployment_workflow_ref =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/[.]github/workflows/[A-Za-z0-9_.-]+[.]ya?ml@refs/heads/[A-Za-z0-9_./-]+$ ]]; then
+  echo "MBX_CACHE_DEPLOY_GITHUB_WORKFLOW_REF must identify a workflow on a branch" >&2
+  exit 1
+fi
+if [[ ! $ssh_user =~ ^[A-Za-z_][A-Za-z0-9_-]*$ ]]; then
+  echo "AZURE_SSH_USER is not a valid SSH user name" >&2
+  exit 1
+fi
+if [[ ! $ssh_port =~ ^[0-9]+$ ]] || ((ssh_port < 1 || ssh_port > 65535)); then
+  echo "AZURE_SSH_PORT must be between 1 and 65535" >&2
+  exit 1
+fi
+if [[ -n ${AZURE_SSH_IDENTITY_FILE:-} && ! -r $AZURE_SSH_IDENTITY_FILE ]]; then
+  echo "AZURE_SSH_IDENTITY_FILE is not readable: $AZURE_SSH_IDENTITY_FILE" >&2
+  exit 1
+fi
+
+ssh_host=$AZURE_SSH_HOST
+cache_url=${cache_url%/}
+
+if [[ ! $ssh_host =~ ^[A-Za-z0-9_.:-]+$ ]]; then
+  echo "AZURE_SSH_HOST must be an IP address or SSH host name without whitespace" >&2
+  exit 1
+fi
+
+if [[ $cache_url != https://* ]]; then
+  echo "MBX_CACHE_URL must use https://" >&2
+  exit 1
+fi
+cache_domain=${cache_url#https://}
+if [[ ! $cache_domain =~ ^[A-Za-z0-9.-]+$ ]]; then
+  echo "MBX_CACHE_URL must contain a DNS hostname without a path" >&2
+  exit 1
+fi
+if [[ ! $AZURE_STORAGE_ACCOUNT =~ ^[a-z0-9]{3,24}$ ]]; then
+  echo "AZURE_STORAGE_ACCOUNT must contain 3-24 lowercase letters and digits" >&2
+  exit 1
+fi
+if [[ ! $storage_container =~ ^[a-z0-9]([a-z0-9-]{1,61}[a-z0-9])?$ ]]; then
+  echo "AZURE_STORAGE_CONTAINER is not a valid Azure Blob container name" >&2
+  exit 1
+fi
+
+oidc_providers=$(jq -cn \
+  --arg audience "$cache_url" \
+  --arg write_actor_id "$write_actor_id" \
+  --arg deployment_repository "$deployment_repository" \
+  --arg deployment_owner_id "$deployment_owner_id" \
+  --arg deployment_workflow_ref "$deployment_workflow_ref" \
+  --arg deployment_run_attempt "$deployment_run_attempt" \
+  --argjson repositories "$trusted_repositories" \
+  '[{
+    issuer: "https://token.actions.githubusercontent.com",
+    audiences: [$audience],
+    rules: (
+      (
+        [$repositories[] as $entry | [
+          {claims: {repository: $entry.repository, repository_owner_id: $entry.repository_owner_id, actor_id: $write_actor_id, run_attempt: "1", event_name: "push", ref_type: "branch", ref: "refs/heads/main"}, read: [$entry.repository], write: [$entry.repository]},
+          {claims: {repository: $entry.repository, repository_owner_id: $entry.repository_owner_id, actor_id: $write_actor_id, run_attempt: "1", event_name: "workflow_dispatch", ref_type: "branch", ref: "refs/heads/main", workflow_ref: ($entry.repository + "/.github/workflows/warm-cache-benchmark.yml@refs/heads/main")}, read: [$entry.repository], write: [$entry.repository]},
+          {claims: {repository: $entry.repository, repository_owner_id: $entry.repository_owner_id, ref_type: "tag"}, read: [$entry.repository], write: []},
+          {claims: {repository: $entry.repository, repository_owner_id: $entry.repository_owner_id, event_name: "pull_request"}, read: [$entry.repository], write: []},
+          {claims: {repository: $entry.repository, repository_owner_id: $entry.repository_owner_id, event_name: "push"}, read: [$entry.repository], write: []}
+        ]] | add
+      ) + [
+        {claims: {repository: $deployment_repository, repository_owner_id: $deployment_owner_id, actor_id: $write_actor_id, run_attempt: $deployment_run_attempt, environment: "production", workflow_ref: $deployment_workflow_ref}, read: [$deployment_repository], write: [$deployment_repository]}
+      ]
+    )
+  }]')
+anonymous_read_namespaces=$(jq -cn \
+  --argjson repositories "$trusted_repositories" \
+  '$repositories | map(.repository)')
+
+temporary_root=${TMPDIR:-/tmp}
+temporary_root=${temporary_root%/}
+project_dir=$(mktemp -d "$temporary_root/mbx-cache-azure.XXXXXXXX")
+
+cleanup() {
+  local status=$?
+  case "$project_dir" in
+    "$temporary_root"/mbx-cache-azure.*) rm -rf -- "$project_dir" ;;
+    *) echo "refusing to remove unexpected temporary directory: $project_dir" >&2 ;;
+  esac
+  return "$status"
+}
+trap cleanup EXIT
+
+cp -R "$script_dir/bootstrap/." "$project_dir/"
+install -d -m 0700 "$project_dir/runtime"
+
+file_sha256() {
+  local digest
+  read -r digest _ < <("${sha256_command[@]}" "$1")
+  printf '%s\n' "$digest"
+}
+
+prometheus_config_hash=$(file_sha256 "$project_dir/monitoring/prometheus.yml")
+grafana_config_hash=$({
+  file_sha256 "$project_dir/monitoring/grafana/dashboards/mbx-cache.json"
+  file_sha256 "$project_dir/monitoring/grafana/provisioning/dashboards/mbx-cache.yml"
+  file_sha256 "$project_dir/monitoring/grafana/provisioning/datasources/prometheus.yml"
+} | "${sha256_command[@]}")
+grafana_config_hash=${grafana_config_hash%% *}
+
+write_dotenv() {
+  local encoded key=$1 value=$2
+  encoded=$(jq -Rn --arg value "$value" '$value')
+  printf '%s=%s\n' "$key" "$encoded"
+}
+
+{
+  write_dotenv MBX_CACHE_DOMAIN "$cache_domain"
+  write_dotenv MBX_CACHE_GRAFANA_CONFIG_HASH "$grafana_config_hash"
+  write_dotenv MBX_CACHE_IMAGE "$MBX_CACHE_IMAGE"
+  write_dotenv MBX_CACHE_PROMETHEUS_CONFIG_HASH "$prometheus_config_hash"
+  write_dotenv POSTGRES_PASSWORD "$MBX_CACHE_DATABASE_PASSWORD"
+} >"$project_dir/runtime/.env"
+
+{
+  write_dotenv MBX_CACHE_STORAGE azure
+  write_dotenv MBX_CACHE_DATABASE_URL \
+    "postgres://mbx_cache:$MBX_CACHE_DATABASE_PASSWORD@postgres/mbx_cache"
+  write_dotenv MBX_CACHE_DATABASE_MAX_CONNECTIONS 32
+  write_dotenv MBX_CACHE_AZURE_ACCOUNT "$AZURE_STORAGE_ACCOUNT"
+  write_dotenv MBX_CACHE_AZURE_CONTAINER "$storage_container"
+  write_dotenv MBX_CACHE_AZURE_PREFIX v1
+  write_dotenv MBX_CACHE_AZURE_CREDENTIAL_TYPE managed_identity
+  write_dotenv MBX_CACHE_OIDC_PROVIDERS_JSON "$oidc_providers"
+  write_dotenv MBX_CACHE_ALLOW_ANONYMOUS false
+  write_dotenv MBX_CACHE_ANONYMOUS_READ_NAMESPACES_JSON "$anonymous_read_namespaces"
+} >"$project_dir/runtime/cache.env"
+chmod 0600 "$project_dir/runtime/.env" "$project_dir/runtime/cache.env"
+
+ssh_source_cidr=$(jq -Rn --arg value "$AZURE_SSH_SOURCE_CIDR" '$value')
+{
+  printf '%s\n' '[[bootstrap.linux.firewall.rules]]'
+  printf '%s\n' 'name = "ssh-admin"'
+  printf '%s\n' 'direction = "incoming"'
+  printf '%s\n' 'action = "allow"'
+  printf 'port = %s\n' "$ssh_port"
+  printf '%s\n' 'protocol = "tcp"'
+  printf 'source = %s\n' "$ssh_source_cidr"
+} >"$project_dir/mise.local.toml"
+
+remote_args=(
+  bootstrap remote
+  --host "$ssh_user@$ssh_host"
+  --source "$project_dir"
+  --only "packages,files,services,firewall,compose"
+  --update
+  --yes
+)
+if [[ $ssh_port != 22 ]]; then
+  remote_args+=(--port "$ssh_port")
+fi
+if [[ -n ${AZURE_SSH_IDENTITY_FILE:-} ]]; then
+  remote_args+=(--identity-file "$AZURE_SSH_IDENTITY_FILE")
+fi
+
+dry_run=false
+for argument in "$@"; do
+  if [[ $argument == --dry-run || $argument == -n ]]; then
+    dry_run=true
+  fi
+done
+
+mise "${remote_args[@]}" "$@"
+
+if [[ $dry_run == false ]]; then
+  curl \
+    --connect-timeout 10 \
+    --fail \
+    --retry 60 \
+    --retry-all-errors \
+    --retry-delay 5 \
+    --retry-max-time 600 \
+    --show-error \
+    --silent \
+    "$cache_url/v1/status" >/dev/null
+  echo "mbx-cache is healthy at $cache_url"
+fi

@@ -1,0 +1,234 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+test_root=$(mktemp -d "${TMPDIR:-/tmp}/mbx-cache-deploy-test.XXXXXXXX")
+
+cleanup() {
+  local status=$?
+  case "$test_root" in
+    "${TMPDIR:-/tmp}"/mbx-cache-deploy-test.*) rm -rf -- "$test_root" ;;
+    *) echo "refusing to remove unexpected test directory: $test_root" >&2 ;;
+  esac
+  return "$status"
+}
+trap cleanup EXIT
+
+install -d "$test_root/bin" "$test_root/capture"
+
+cat >"$test_root/bin/mise" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ $* == 'bootstrap remote --help' ]]; then
+  exit 0
+fi
+
+printf '%s\n' "$@" >"$CAPTURE_DIR/args"
+project_dir=
+previous=
+for argument in "$@"; do
+  if [[ $previous == --source ]]; then
+    project_dir=$argument
+    break
+  fi
+  previous=$argument
+done
+[[ -n $project_dir && -d $project_dir ]]
+printf '%s\n' "$project_dir" >"$CAPTURE_DIR/project-dir"
+file_mode() {
+  stat -c %a "$1" 2>/dev/null || stat -f %Lp "$1"
+}
+[[ $(file_mode "$project_dir/runtime") == 700 ]]
+[[ $(file_mode "$project_dir/runtime/.env") == 600 ]]
+[[ $(file_mode "$project_dir/runtime/cache.env") == 600 ]]
+grep -Fq 'POSTGRES_PASSWORD="database_password_123456"' "$project_dir/runtime/.env"
+prometheus_config_hash=$(sha256sum "$project_dir/monitoring/prometheus.yml")
+prometheus_config_hash=${prometheus_config_hash%% *}
+grep -Fq "MBX_CACHE_PROMETHEUS_CONFIG_HASH=\"$prometheus_config_hash\"" "$project_dir/runtime/.env"
+grafana_config_hash=$({
+  sha256sum "$project_dir/monitoring/grafana/dashboards/mbx-cache.json"
+  sha256sum "$project_dir/monitoring/grafana/provisioning/dashboards/mbx-cache.yml"
+  sha256sum "$project_dir/monitoring/grafana/provisioning/datasources/prometheus.yml"
+} | awk '{print $1}' | sha256sum)
+grafana_config_hash=${grafana_config_hash%% *}
+grep -Fq "MBX_CACHE_GRAFANA_CONFIG_HASH=\"$grafana_config_hash\"" "$project_dir/runtime/.env"
+grep -Fq 'MBX_CACHE_STORAGE="azure"' "$project_dir/runtime/cache.env"
+grep -Fq 'MBX_CACHE_AZURE_ACCOUNT="mbxcachetest"' "$project_dir/runtime/cache.env"
+grep -Fq 'MBX_CACHE_AZURE_CONTAINER="cache"' "$project_dir/runtime/cache.env"
+grep -Fq 'MBX_CACHE_AZURE_CREDENTIAL_TYPE="managed_identity"' "$project_dir/runtime/cache.env"
+oidc_json=$(sed -n 's/^MBX_CACHE_OIDC_PROVIDERS_JSON=//p' "$project_dir/runtime/cache.env" | jq -c fromjson)
+anonymous_read_namespaces=$(sed -n 's/^MBX_CACHE_ANONYMOUS_READ_NAMESPACES_JSON=//p' "$project_dir/runtime/cache.env" | jq -c fromjson)
+jq -e --argjson repositories "${MBX_CACHE_TEST_REPOSITORIES:?}" '$repositories == .' \
+  <<<"$anonymous_read_namespaces" >/dev/null
+jq -e \
+  --argjson repositories "${MBX_CACHE_TEST_REPOSITORIES:?}" \
+  --arg deployment_run_attempt "${MBX_CACHE_TEST_DEPLOY_RUN_ATTEMPT:?}" \
+  --arg write_actor_id "${MBX_CACHE_TEST_WRITE_ACTOR_ID:?}" '
+  .[0].rules as $rules |
+  # Five rules per trusted repository -- protected-main push, the exact warm
+  # benchmark dispatch, tag, pull request, and other push -- plus the single
+  # deployment rule. Both the list and the count come from the allowlist the
+  # deploy just consumed, so adding a
+  # repository does not fail this on a restated name or a stale number. What
+  # is still checked is that every configured repository got exactly those
+  # five rules and that nothing generated a rule beyond them.
+  ($rules | length == ($repositories | length) * 5 + 1) and
+  ($repositories | all(. as $repository |
+    ($rules | any(
+      .claims.repository == $repository and
+      .claims.repository_owner_id == "216188" and
+      .claims.actor_id == $write_actor_id and
+      .claims.run_attempt == "1" and
+      .claims.event_name == "push" and
+      .claims.ref_type == "branch" and
+      .claims.ref == "refs/heads/main" and
+      .read == [$repository] and
+      .write == [$repository]
+    )) and
+    ($rules | any(
+      .claims.repository == $repository and
+      .claims.repository_owner_id == "216188" and
+      .claims.actor_id == $write_actor_id and
+      .claims.run_attempt == "1" and
+      .claims.event_name == "workflow_dispatch" and
+      .claims.ref_type == "branch" and
+      .claims.ref == "refs/heads/main" and
+      .claims.workflow_ref == ($repository + "/.github/workflows/warm-cache-benchmark.yml@refs/heads/main") and
+      .read == [$repository] and
+      .write == [$repository]
+    )) and
+    ($rules | any(
+      .claims.repository == $repository and
+      .claims.repository_owner_id == "216188" and
+      .claims.actor_id == null and
+      .claims.run_attempt == null and
+      .claims.ref_type == "tag" and
+      .read == [$repository] and
+      .write == []
+    )) and
+    ($rules | any(
+      .claims.repository == $repository and
+      .claims.repository_owner_id == "216188" and
+      .claims.actor_id == null and
+      .claims.run_attempt == null and
+      .claims.event_name == "pull_request" and
+      .read == [$repository] and
+      .write == []
+    )) and
+    ($rules | any(
+      .claims.repository == $repository and
+      .claims.repository_owner_id == "216188" and
+      .claims.actor_id == null and
+      .claims.run_attempt == null and
+      .claims.event_name == "push" and
+      .read == [$repository] and
+      .write == []
+    ))
+  )) and
+  ($rules | any(
+    .claims.repository == "jdx/mr-boxington-cache" and
+    .claims.repository_owner_id == "216188" and
+    .claims.actor_id == $write_actor_id and
+    .claims.run_attempt == $deployment_run_attempt and
+    .claims.environment == "production" and
+    .claims.workflow_ref == "jdx/mr-boxington-cache/.github/workflows/release-plz.yml@refs/heads/main" and
+    .read == ["jdx/mr-boxington-cache"] and
+    .write == ["jdx/mr-boxington-cache"]
+  ))
+' <<<"$oidc_json" >/dev/null
+grep -Fq 'port = 2222' "$project_dir/mise.local.toml"
+grep -Fq 'source = "203.0.113.10/32"' "$project_dir/mise.local.toml"
+if grep -R -Fq 'must-not-be-forwarded' "$project_dir"; then
+  echo "unrelated caller environment was copied" >&2
+  exit 1
+fi
+SH
+chmod 0755 "$test_root/bin/mise"
+
+# The rule assertions in the fake mise above run in a quoted heredoc, so the
+# allowlist has to reach them through the environment rather than expansion.
+trusted_repositories=$(jq -c 'map(.repository)' "$script_dir/trusted-repositories.json")
+
+common_env=(
+  "CAPTURE_DIR=$test_root/capture"
+  "MBX_CACHE_TEST_REPOSITORIES=$trusted_repositories"
+  "MBX_CACHE_TEST_DEPLOY_RUN_ATTEMPT=4"
+  "MBX_CACHE_TEST_WRITE_ACTOR_ID=216188"
+  "MBX_CACHE_DATABASE_PASSWORD=database_password_123456"
+  "MBX_CACHE_DEPLOY_GITHUB_RUN_ATTEMPT=4"
+  "MBX_CACHE_IMAGE=ghcr.io/jdx/mbx-cache@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+  "AZURE_SSH_HOST=mbx-cache-prod.tailnet.example"
+  "AZURE_STORAGE_ACCOUNT=mbxcachetest"
+  "AZURE_STORAGE_CONTAINER=cache"
+  "PATH=$test_root/bin:$PATH"
+  "SHOULD_NOT_COPY=must-not-be-forwarded"
+)
+
+if env "${common_env[@]}" "$script_dir/deploy.sh" --dry-run >/dev/null 2>&1; then
+  echo "deploy.sh accepted a missing AZURE_SSH_SOURCE_CIDR" >&2
+  exit 1
+fi
+
+if env "${common_env[@]}" \
+  MBX_CACHE_IMAGE=ghcr.io/jdx/mbx-cache:0.1.0 \
+  AZURE_SSH_SOURCE_CIDR=203.0.113.10/32 \
+  "$script_dir/deploy.sh" --dry-run >/dev/null 2>&1; then
+  echo "deploy.sh accepted an image that was not pinned by digest" >&2
+  exit 1
+fi
+
+if env "${common_env[@]}" \
+  MBX_CACHE_GITHUB_WRITE_ACTOR_ID=not-numeric \
+  AZURE_SSH_SOURCE_CIDR=203.0.113.10/32 \
+  "$script_dir/deploy.sh" --dry-run >/dev/null 2>&1; then
+  echo "deploy.sh accepted a non-numeric GitHub write actor ID" >&2
+  exit 1
+fi
+
+if env "${common_env[@]}" \
+  MBX_CACHE_DEPLOY_GITHUB_RUN_ATTEMPT=zero \
+  AZURE_SSH_SOURCE_CIDR=203.0.113.10/32 \
+  "$script_dir/deploy.sh" --dry-run >/dev/null 2>&1; then
+  echo "deploy.sh accepted an invalid GitHub run attempt" >&2
+  exit 1
+fi
+
+env "${common_env[@]}" \
+  MBX_CACHE_GITHUB_WRITE_ACTOR_ID=987654 \
+  MBX_CACHE_TEST_WRITE_ACTOR_ID=987654 \
+  AZURE_SSH_PORT=2222 \
+  AZURE_SSH_SOURCE_CIDR=203.0.113.10/32 \
+  "$script_dir/deploy.sh" --dry-run
+
+invalid_repositories="$test_root/invalid-repositories.json"
+printf '%s\n' '[{"repository":"jdx/mise","repository_owner_id":"216188"},{"repository":"jdx/mise","repository_owner_id":"216188"}]' >"$invalid_repositories"
+if env "${common_env[@]}" \
+  MBX_CACHE_GITHUB_REPOSITORIES_FILE="$invalid_repositories" \
+  AZURE_SSH_SOURCE_CIDR=203.0.113.10/32 \
+  "$script_dir/deploy.sh" --dry-run >/dev/null 2>&1; then
+  echo "deploy.sh accepted duplicate trusted repositories" >&2
+  exit 1
+fi
+
+env "${common_env[@]}" \
+  AZURE_SSH_PORT=2222 \
+  AZURE_SSH_SOURCE_CIDR=203.0.113.10/32 \
+  "$script_dir/deploy.sh" --dry-run
+
+grep -Fxq 'bootstrap' "$test_root/capture/args"
+grep -Fxq 'remote' "$test_root/capture/args"
+grep -Fxq 'azureuser@mbx-cache-prod.tailnet.example' "$test_root/capture/args"
+grep -Fxq 'packages,files,services,firewall,compose' "$test_root/capture/args"
+grep -Fxq -- '--port' "$test_root/capture/args"
+grep -Fxq '2222' "$test_root/capture/args"
+grep -Fq -- '--dry-run' "$test_root/capture/args"
+if grep -Eq 'database_password' "$test_root/capture/args"; then
+  echo "secret value appeared in mise arguments" >&2
+  exit 1
+fi
+
+project_dir=$(<"$test_root/capture/project-dir")
+if [[ -e $project_dir ]]; then
+  echo "temporary bootstrap project was not removed: $project_dir" >&2
+  exit 1
+fi

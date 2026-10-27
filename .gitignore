@@ -1,0 +1,10 @@
+/target
+/.env
+*.pem
+*.key
+*.tfstate
+*.tfstate.*
+*.tfvars
+.terraform/
+/deploy/*/bootstrap/cache.env
+/deploy/*/bootstrap/runtime/

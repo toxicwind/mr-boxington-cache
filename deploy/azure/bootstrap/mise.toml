@@ -1,0 +1,177 @@
+min_version = "2026.8.2"
+
+[bootstrap.packages]
+"apt:ca-certificates" = "latest"
+"apt:docker-compose-v2" = "latest"
+"apt:docker.io" = "latest"
+"apt:fail2ban" = "latest"
+"apt:nftables" = "latest"
+"apt:unattended-upgrades" = "latest"
+
+[bootstrap.directories."/opt/mbx-cache"]
+owner = "root"
+group = "root"
+mode = "0750"
+
+[bootstrap.directories."/opt/mbx-cache/monitoring"]
+owner = "root"
+group = "root"
+mode = "0755"
+
+[bootstrap.directories."/opt/mbx-cache/monitoring/grafana"]
+owner = "root"
+group = "root"
+mode = "0755"
+
+[bootstrap.directories."/opt/mbx-cache/monitoring/grafana/dashboards"]
+owner = "root"
+group = "root"
+mode = "0755"
+
+[bootstrap.directories."/opt/mbx-cache/monitoring/grafana/provisioning"]
+owner = "root"
+group = "root"
+mode = "0755"
+
+[bootstrap.directories."/opt/mbx-cache/monitoring/grafana/provisioning/dashboards"]
+owner = "root"
+group = "root"
+mode = "0755"
+
+[bootstrap.directories."/opt/mbx-cache/monitoring/grafana/provisioning/datasources"]
+owner = "root"
+group = "root"
+mode = "0755"
+
+[bootstrap.files."/etc/apt/apt.conf.d/20auto-upgrades"]
+content = '''
+APT::Periodic::Update-Package-Lists "1";
+APT::Periodic::Unattended-Upgrade "1";
+'''
+owner = "root"
+group = "root"
+mode = "0644"
+
+[bootstrap.files."/etc/fail2ban/jail.d/mbx-cache.conf"]
+content = '''
+[sshd]
+enabled = true
+backend = systemd
+bantime = 1h
+findtime = 10m
+maxretry = 5
+'''
+owner = "root"
+group = "root"
+mode = "0644"
+notify = ["fail2ban"]
+
+[bootstrap.files."/opt/mbx-cache/compose.yaml"]
+source = "./compose.yaml"
+owner = "root"
+group = "root"
+mode = "0644"
+
+[bootstrap.files."/opt/mbx-cache/.env"]
+source = "./runtime/.env"
+owner = "root"
+group = "root"
+mode = "0600"
+
+[bootstrap.files."/opt/mbx-cache/cache.env"]
+source = "./runtime/cache.env"
+owner = "root"
+group = "root"
+mode = "0600"
+
+[bootstrap.files."/opt/mbx-cache/monitoring/prometheus.yml"]
+source = "./monitoring/prometheus.yml"
+owner = "root"
+group = "root"
+mode = "0644"
+
+[bootstrap.files."/opt/mbx-cache/monitoring/grafana/dashboards/mbx-cache.json"]
+source = "./monitoring/grafana/dashboards/mbx-cache.json"
+owner = "root"
+group = "root"
+mode = "0644"
+
+[bootstrap.files."/opt/mbx-cache/monitoring/grafana/provisioning/dashboards/mbx-cache.yml"]
+source = "./monitoring/grafana/provisioning/dashboards/mbx-cache.yml"
+owner = "root"
+group = "root"
+mode = "0644"
+
+[bootstrap.files."/opt/mbx-cache/monitoring/grafana/provisioning/datasources/prometheus.yml"]
+source = "./monitoring/grafana/provisioning/datasources/prometheus.yml"
+owner = "root"
+group = "root"
+mode = "0644"
+
+[bootstrap.services.docker]
+state = "running"
+enabled = true
+
+[bootstrap.services.fail2ban]
+state = "running"
+enabled = true
+on_change = "restart"
+
+[bootstrap.services.unattended-upgrades]
+state = "running"
+enabled = true
+
+[bootstrap.linux.firewall]
+backend = "nftables"
+state = "enabled"
+default_incoming = "deny"
+default_outgoing = "allow"
+exclusive = true
+
+[[bootstrap.linux.firewall.rules]]
+name = "http"
+direction = "incoming"
+action = "allow"
+port = 80
+protocol = "tcp"
+
+[[bootstrap.linux.firewall.rules]]
+name = "https"
+direction = "incoming"
+action = "allow"
+port = 443
+protocol = "tcp"
+
+[[bootstrap.linux.firewall.rules]]
+name = "http3"
+direction = "incoming"
+action = "allow"
+port = 443
+protocol = "udp"
+
+[[bootstrap.linux.firewall.rules]]
+name = "tailscale-ssh"
+direction = "incoming"
+action = "allow"
+port = 22
+protocol = "tcp"
+source = "100.64.0.0/10"
+interface = "tailscale0"
+
+[bootstrap.compose.mbx-cache]
+project_dir = "/opt/mbx-cache"
+files = ["compose.yaml"]
+env_files = [".env"]
+project_name = "mbx-cache"
+state = "running"
+pull = "missing"
+wait = true
+wait_timeout = 600
+timeout = 120
+remove_orphans = true
+sudo = true
+depends_on = [
+  "package:apt:docker.io",
+  "package:apt:docker-compose-v2",
+  "service:docker",
+]
