@@ -1,0 +1,113 @@
+{
+  "name": "mbx-cache",
+  "version": "0.0.0",
+  "description": "Self-hostable remote build-cache server for mbx and mise",
+  "private": true,
+  "scripts": {
+    "dev": "cargo watch -x 'run --release'",
+    "test": "cargo test",
+    "typecheck": "cargo fmt --check && cargo clippy --all-targets --all-features -- -D warnings",
+    "build": "cargo build --release",
+    "lint": "cargo clippy --all-targets --all-features -- -D warnings",
+    "fmt": "cargo fmt"
+  },
+  "dependencies": {
+    "tokio": {
+      "version": "1",
+      "features": [
+        "full"
+      ]
+    },
+    "axum": "0.7",
+    "blake3": "1",
+    "sha2": "0.10",
+    "serde": {
+      "version": "1",
+      "features": [
+        "derive"
+      ]
+    },
+    "serde_json": "1",
+    "object_store": "0.9",
+    "sqlx": {
+      "version": "0.8",
+      "features": [
+        "runtime-tokio",
+        "postgres",
+        "migrate"
+      ]
+    },
+    "tracing": "0.1",
+    "tracing-subscriber": {
+      "version": "0.3",
+      "features": [
+        "env-filter"
+      ]
+    },
+    "tokio-util": {
+      "version": "0.7",
+      "features": [
+        "io"
+      ]
+    },
+    "async-compression": {
+      "version": "0.4",
+      "features": [
+        "tokio",
+        "bzip2",
+        "gzip",
+        "zstd"
+      ]
+    },
+    "http-body-util": "0.1",
+    "hyper": "1",
+    "hyper-util": {
+      "version": "0.1",
+      "features": [
+        "tokio"
+      ]
+    },
+    "tower": "0.4",
+    "tower-http": {
+      "version": "0.5",
+      "features": [
+        "trace",
+        "cors",
+        "auth"
+      ]
+    },
+    "uuid": {
+      "version": "1",
+      "features": [
+        "v4",
+        "serde"
+      ]
+    },
+    "ulid": "1",
+    "chrono": {
+      "version": "0.4",
+      "features": [
+        "serde"
+      ]
+    },
+    "config": "0.14",
+    "jsonwebtoken": "9",
+    "argon2": "0.5",
+    "base64": "0.22",
+    "once_cell": "1",
+    "thiserror": "1",
+    "regex": "1",
+    "futures": "0.3",
+    "bytes": "1",
+    "mime": "0.3",
+    "url": "2",
+    "rand": "0.8",
+    "rand_core": "0.6",
+    "hex": "0.4",
+    "dotenvy": "0.15"
+  },
+  "devDependencies": {
+    "cargo-watch": "8"
+  },
+  "type": "module"
+}
