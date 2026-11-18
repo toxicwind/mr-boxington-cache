@@ -1,0 +1,10 @@
+/home/toxic/pens/ranch/products/mr-boxington-cache/target/release/build/aws-smithy-query/a473b7d4f24cbeaf/out/aws_smithy_query-a473b7d4f24cbeaf.d: /home/toxic/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/aws-smithy-query-0.62.0/src/lib.rs /home/toxic/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/aws-smithy-query-0.62.0/src/codec/mod.rs /home/toxic/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/aws-smithy-query-0.62.0/src/codec/serializer.rs /home/toxic/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/aws-smithy-query-0.62.0/src/protocol.rs
+
+/home/toxic/pens/ranch/products/mr-boxington-cache/target/release/build/aws-smithy-query/a473b7d4f24cbeaf/out/libaws_smithy_query-a473b7d4f24cbeaf.rlib: /home/toxic/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/aws-smithy-query-0.62.0/src/lib.rs /home/toxic/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/aws-smithy-query-0.62.0/src/codec/mod.rs /home/toxic/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/aws-smithy-query-0.62.0/src/codec/serializer.rs /home/toxic/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/aws-smithy-query-0.62.0/src/protocol.rs
+
+/home/toxic/pens/ranch/products/mr-boxington-cache/target/release/build/aws-smithy-query/a473b7d4f24cbeaf/out/libaws_smithy_query-a473b7d4f24cbeaf.rmeta: /home/toxic/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/aws-smithy-query-0.62.0/src/lib.rs /home/toxic/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/aws-smithy-query-0.62.0/src/codec/mod.rs /home/toxic/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/aws-smithy-query-0.62.0/src/codec/serializer.rs /home/toxic/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/aws-smithy-query-0.62.0/src/protocol.rs
+
+/home/toxic/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/aws-smithy-query-0.62.0/src/lib.rs:
+/home/toxic/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/aws-smithy-query-0.62.0/src/codec/mod.rs:
+/home/toxic/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/aws-smithy-query-0.62.0/src/codec/serializer.rs:
+/home/toxic/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/aws-smithy-query-0.62.0/src/protocol.rs:

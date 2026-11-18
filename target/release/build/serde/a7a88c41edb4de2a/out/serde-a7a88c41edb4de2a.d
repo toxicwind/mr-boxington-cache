@@ -1,0 +1,14 @@
+/home/toxic/pens/ranch/products/mr-boxington-cache/target/release/build/serde/a7a88c41edb4de2a/out/serde-a7a88c41edb4de2a.d: /home/toxic/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/lib.rs /home/toxic/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/integer128.rs /home/toxic/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/mod.rs /home/toxic/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/de.rs /home/toxic/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/ser.rs /home/toxic/pens/ranch/products/mr-boxington-cache/target/release/build/serde/dd0ac19f82f2b965/out/private.rs
+
+/home/toxic/pens/ranch/products/mr-boxington-cache/target/release/build/serde/a7a88c41edb4de2a/out/libserde-a7a88c41edb4de2a.rlib: /home/toxic/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/lib.rs /home/toxic/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/integer128.rs /home/toxic/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/mod.rs /home/toxic/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/de.rs /home/toxic/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/ser.rs /home/toxic/pens/ranch/products/mr-boxington-cache/target/release/build/serde/dd0ac19f82f2b965/out/private.rs
+
+/home/toxic/pens/ranch/products/mr-boxington-cache/target/release/build/serde/a7a88c41edb4de2a/out/libserde-a7a88c41edb4de2a.rmeta: /home/toxic/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/lib.rs /home/toxic/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/integer128.rs /home/toxic/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/mod.rs /home/toxic/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/de.rs /home/toxic/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/ser.rs /home/toxic/pens/ranch/products/mr-boxington-cache/target/release/build/serde/dd0ac19f82f2b965/out/private.rs
+
+/home/toxic/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/lib.rs:
+/home/toxic/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/integer128.rs:
+/home/toxic/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/mod.rs:
+/home/toxic/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/de.rs:
+/home/toxic/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/ser.rs:
+/home/toxic/pens/ranch/products/mr-boxington-cache/target/release/build/serde/dd0ac19f82f2b965/out/private.rs:
+
+# env-dep:OUT_DIR=/home/toxic/pens/ranch/products/mr-boxington-cache/target/release/build/serde/dd0ac19f82f2b965/out

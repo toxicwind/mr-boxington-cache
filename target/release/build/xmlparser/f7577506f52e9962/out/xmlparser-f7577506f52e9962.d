@@ -1,0 +1,11 @@
+/home/toxic/pens/ranch/products/mr-boxington-cache/target/release/build/xmlparser/f7577506f52e9962/out/xmlparser-f7577506f52e9962.d: /home/toxic/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/xmlparser-0.13.6/src/lib.rs /home/toxic/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/xmlparser-0.13.6/src/error.rs /home/toxic/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/xmlparser-0.13.6/src/stream.rs /home/toxic/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/xmlparser-0.13.6/src/strspan.rs /home/toxic/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/xmlparser-0.13.6/src/xmlchar.rs
+
+/home/toxic/pens/ranch/products/mr-boxington-cache/target/release/build/xmlparser/f7577506f52e9962/out/libxmlparser-f7577506f52e9962.rlib: /home/toxic/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/xmlparser-0.13.6/src/lib.rs /home/toxic/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/xmlparser-0.13.6/src/error.rs /home/toxic/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/xmlparser-0.13.6/src/stream.rs /home/toxic/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/xmlparser-0.13.6/src/strspan.rs /home/toxic/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/xmlparser-0.13.6/src/xmlchar.rs
+
+/home/toxic/pens/ranch/products/mr-boxington-cache/target/release/build/xmlparser/f7577506f52e9962/out/libxmlparser-f7577506f52e9962.rmeta: /home/toxic/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/xmlparser-0.13.6/src/lib.rs /home/toxic/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/xmlparser-0.13.6/src/error.rs /home/toxic/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/xmlparser-0.13.6/src/stream.rs /home/toxic/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/xmlparser-0.13.6/src/strspan.rs /home/toxic/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/xmlparser-0.13.6/src/xmlchar.rs
+
+/home/toxic/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/xmlparser-0.13.6/src/lib.rs:
+/home/toxic/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/xmlparser-0.13.6/src/error.rs:
+/home/toxic/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/xmlparser-0.13.6/src/stream.rs:
+/home/toxic/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/xmlparser-0.13.6/src/strspan.rs:
+/home/toxic/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/xmlparser-0.13.6/src/xmlchar.rs:
